@@ -1,0 +1,30 @@
+<div class="service-card" id="svc-{{ svc.id }}">
+    <form hx-put="/api/services/{{ svc.id }}" hx-target="#svc-{{ svc.id }}" hx-swap="outerHTML">
+        <div class="card-top">
+            <div class="card-title-row">
+                <span class="status-dot {{ 'enabled' if svc.enabled else 'disabled' }}"></span>
+                <input type="text" name="name" value="{{ svc.name }}" class="edit-input" style="flex:1;font-size:15px;font-weight:600" required>
+                <span class="source-badge {{ 'auto' if svc.auto_detected else 'manual' }}">
+                    {{ '自动发现' if svc.auto_detected else '手动添加' }}
+                </span>
+            </div>
+            <div class="card-meta">
+                <div class="meta-item">
+                    <span class="meta-label">路径</span>
+                    <span class="meta-value">/<input type="text" name="path_prefix" value="{{ svc.path_prefix }}" class="edit-input edit-prefix" required></span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">目标</span>
+                    <span class="meta-value">
+                        <input type="text" name="target_host" value="{{ svc.target_host }}" class="edit-input edit-host">
+                        :<input type="number" name="target_port" value="{{ svc.target_port }}" class="edit-input edit-port" required>
+                    </span>
+                </div>
+            </div>
+        </div>
+        <div style="display:flex;gap:6px;padding:12px 20px;border-top:1px solid var(--border-light)">
+            <button type="submit" class="btn">保存</button>
+            <span class="btn btn-outline" style="cursor:pointer" hx-get="/api/services/{{ svc.id }}" hx-target="#svc-{{ svc.id }}" hx-swap="outerHTML">取消</span>
+        </div>
+    </form>
+</div>

@@ -1,0 +1,5 @@
+host: 0.0.0.0
+port: 8093
+db_path: data/proxy-manager.db
+auth_password: "admin123" # 管理面板登录密码，空=不启用认证
+secret_key: ""         # cookie 签名密钥，空=自动生成

@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Proxy Manager{% endblock %}</title>
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body hx-headers='{"X-Requested-With": "XMLHttpRequest"}'>
+    <header>
+        <a href="/">Proxy Manager</a>
+    </header>
+    <div class="content" id="content">
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>

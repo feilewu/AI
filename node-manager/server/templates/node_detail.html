@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}{{ node.name }} - Node Manager{% endblock %}
+{% block content %}
+<div class="breadcrumb">
+    <a href="/" hx-get="/" hx-target="#content" hx-push-url="true">← 返回</a>
+</div>
+<div class="auto-refresh" hx-get="/nodes/{{ node.id }}" hx-trigger="every 10s" hx-target="#content" hx-swap="outerHTML">自动刷新中...</div>
+<h1>{{ node.name }} <span class="node-id">{{ node.id }}</span></h1>
+<div class="status-bar">
+    <span class="status-dot {{ node.status }}"></span>
+    {{ '在线' if node.status == 'online' else '离线' }}
+    {% if node.last_seen %} | 最后上报: {{ node.last_seen }}{% endif %}
+</div>
+
+<nav class="tab-nav">
+    <a href="/nodes/{{ node.id }}" class="tab active">概览</a>
+    <a href="/nodes/{{ node.id }}/command" class="tab" hx-get="/nodes/{{ node.id }}/command" hx-target="#content" hx-push-url="true">命令</a>
+    <a href="/nodes/{{ node.id }}/logs" class="tab" hx-get="/nodes/{{ node.id }}/logs" hx-target="#content" hx-push-url="true">日志</a>
+</nav>
+
+{% if latest %}
+<div class="metrics-grid">
+    <div class="metric-card">
+        <div class="metric-label">CPU</div>
+        <div class="metric-value">{{ '%.1f'|format(latest.cpu_pct) }}%</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-label">内存</div>
+        <div class="metric-value">{{ '%.1f'|format(latest.memory_pct) }}%</div>
+        <div class="metric-sub">{{ '%.0f'|format(latest.memory_used_mb) }} MB</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-label">磁盘</div>
+        <div class="metric-value">{{ '%.1f'|format(latest.disk_pct) }}%</div>
+        <div class="metric-sub">{{ '%.1f'|format(latest.disk_used_gb) }} GB</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-label">网络(RX)</div>
+        <div class="metric-value">{{ '%.1f'|format(latest.net_rx_bytes / 1024 / 1024) if latest.net_rx_bytes else 0 }} MB</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-label">网络(TX)</div>
+        <div class="metric-value">{{ '%.1f'|format(latest.net_tx_bytes / 1024 / 1024) if latest.net_tx_bytes else 0 }} MB</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-label">负载</div>
+        <div class="metric-value">{{ '%.2f'|format(latest.load_1m) }}</div>
+    </div>
+</div>
+
+<h2>历史指标</h2>
+<div class="table-scroll">
+<table>
+    <thead>
+        <tr>
+            <th>时间</th>
+            <th>CPU</th>
+            <th>内存</th>
+            <th>磁盘</th>
+            <th>网络(RX)</th>
+            <th>网络(TX)</th>
+            <th>负载</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for m in history %}
+        <tr>
+            <td>{{ m.ts }}</td>
+            <td>{{ '%.1f'|format(m.cpu_pct) }}%</td>
+            <td>{{ '%.1f'|format(m.memory_pct) }}%</td>
+            <td>{{ '%.1f'|format(m.disk_pct) }}%</td>
+            <td>{{ '%.1f'|format(m.net_rx_bytes / 1024 / 1024) if m.net_rx_bytes else '-' }} MB</td>
+            <td>{{ '%.1f'|format(m.net_tx_bytes / 1024 / 1024) if m.net_tx_bytes else '-' }} MB</td>
+            <td>{{ '%.2f'|format(m.load_1m) }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+
+<h2>最近命令</h2>
+<div class="compact-list">
+{% if commands %}
+    {% for cmd in commands[:10] %}
+    <div class="cmd-item">
+        <div class="cmd-meta">
+            <span class="cmd-type">{{ cmd.cmd_type }}</span>
+            <span class="cmd-status {{ cmd.status }}">{{ cmd.status }}</span>
+            <span class="cmd-time">{{ cmd.created_at }}</span>
+        </div>
+        <div class="cmd-content">{{ cmd.cmd_content[:100] }}{% if cmd.cmd_content|length > 100 %}...{% endif %}</div>
+    </div>
+    {% endfor %}
+{% else %}
+    <p class="muted">暂无命令记录</p>
+{% endif %}
+</div>
+{% else %}
+<p class="muted">暂无指标数据</p>
+{% endif %}
+{% endblock %}

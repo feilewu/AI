@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Proxy Manager{% endblock %}
+{% block content %}
+<script>
+function toggleMgmt() {
+  var p = document.getElementById('mgmt-panel');
+  if (p.classList.contains('hidden')) {
+    htmx.ajax('GET', '/api/services/mgmt', {target: '#mgmt-panel', swap: 'innerHTML'});
+    p.classList.remove('hidden');
+  } else {
+    p.classList.add('hidden');
+  }
+}
+</script>
+
+<div class="header-row">
+    <h1>已托管服务</h1>
+    <div class="header-actions">
+        {% if authenticated %}
+        <button class="btn btn-outline" onclick="toggleMgmt()">服务配置</button>
+        <a href="/logout" class="btn btn-outline" style="color:var(--text-muted)">登出</a>
+        {% else %}
+        <a href="/login" class="btn btn-outline">登录后配置</a>
+        {% endif %}
+    </div>
+</div>
+
+<div id="mgmt-panel" class="hidden" hx-on::after-request="htmx.ajax('GET','/api/services/cards',{target:'#service-list',swap:'outerHTML'})"></div>
+
+<div id="service-list" class="service-grid">
+    {% if services %}
+        {% for svc in services %}
+        <a href="/{{ svc.path_prefix }}" class="service-card" id="svc-{{ svc.id }}" target="_blank">
+            <div class="card-top">
+                <div class="card-title-row">
+                    <span class="status-dot {{ 'enabled' if svc.enabled else 'disabled' }}"></span>
+                    <span class="service-name">{{ svc.name }}</span>
+                    <span class="source-badge {{ 'auto' if svc.auto_detected else 'manual' }}">
+                        {{ '自动发现' if svc.auto_detected else '手动添加' }}
+                    </span>
+                </div>
+                <div class="card-meta">
+                    <div class="meta-item">
+                        <span class="meta-label">路径</span>
+                        <span class="meta-value">/<code>{{ svc.path_prefix }}</code></span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">目标</span>
+                        <span class="meta-value">{{ svc.target_host }}:{{ svc.target_port }}</span>
+                    </div>
+                </div>
+            </div>
+        </a>
+        {% endfor %}
+    {% else %}
+        <p class="muted">暂无托管服务，点击"服务配置"扫描发现或手动添加</p>
+    {% endif %}
+</div>
+{% endblock %}

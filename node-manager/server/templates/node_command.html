@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}命令 - {{ node.name }} - Node Manager{% endblock %}
+{% block content %}
+<div class="breadcrumb">
+    <a href="/nodes/{{ node.id }}" hx-get="/nodes/{{ node.id }}" hx-target="#content" hx-push-url="true">← {{ node.name }}</a>
+</div>
+<h1>远程命令执行</h1>
+<div class="status-bar">
+    <span class="status-dot {{ node.status }}"></span>
+    {{ '在线' if node.status == 'online' else '离线' }}
+</div>
+
+{% if node.status == 'online' %}
+<div class="cmd-form">
+    <form hx-post="/api/nodes/{{ node.id }}/command" hx-target="#cmd-result" hx-swap="innerHTML">
+        <input type="hidden" name="type" value="shell">
+        <div class="cmd-input-row">
+            <input type="text" name="command" class="cmd-input" placeholder="输入命令，如: systemctl status nginx" required autofocus>
+            <button type="submit" class="btn">执行</button>
+        </div>
+    </form>
+    <div class="cmd-quick">
+        <button class="btn-sm" hx-post="/api/nodes/{{ node.id }}/command" hx-target="#cmd-result" hx-swap="innerHTML" hx-vals='{"type":"shell","command":"uptime"}'>uptime</button>
+        <button class="btn-sm" hx-post="/api/nodes/{{ node.id }}/command" hx-target="#cmd-result" hx-swap="innerHTML" hx-vals='{"type":"shell","command":"free -h"}'>free -h</button>
+        <button class="btn-sm" hx-post="/api/nodes/{{ node.id }}/command" hx-target="#cmd-result" hx-swap="innerHTML" hx-vals='{"type":"shell","command":"df -h"}'>df -h</button>
+        <button class="btn-sm" hx-post="/api/nodes/{{ node.id }}/command" hx-target="#cmd-result" hx-swap="innerHTML" hx-vals='{"type":"shell","command":"ps aux --sort=-%mem | head -10"}'>top mem</button>
+    </div>
+</div>
+
+<div id="cmd-result" class="cmd-result-box">
+    <pre class="cmd-output muted">命令执行结果将显示在这里</pre>
+</div>
+{% else %}
+<div class="cmd-result-box">
+    <pre class="cmd-output error">节点离线，无法执行命令</pre>
+</div>
+{% endif %}
+
+<h2>命令历史</h2>
+<div class="compact-list">
+{% if history %}
+    {% for cmd in history %}
+    <div class="cmd-item">
+        <div class="cmd-meta">
+            <span class="cmd-type">{{ cmd.cmd_type }}</span>
+            <span class="cmd-status {{ cmd.status }}">{{ cmd.status }}</span>
+            <span class="cmd-time">{{ cmd.created_at }}</span>
+        </div>
+        <div class="cmd-content">{{ cmd.cmd_content[:120] }}{% if cmd.cmd_content|length > 120 %}...{% endif %}</div>
+        {% if cmd.result %}
+        <button class="btn-text" onclick="this.nextElementSibling.classList.toggle('hidden')">查看结果</button>
+        <pre class="cmd-result-toggle hidden">{{ cmd.result }}</pre>
+        {% endif %}
+    </div>
+    {% endfor %}
+{% else %}
+    <p class="muted">暂无命令记录</p>
+{% endif %}
+</div>
+{% endblock %}

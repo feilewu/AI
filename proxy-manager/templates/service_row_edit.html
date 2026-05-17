@@ -1,0 +1,15 @@
+<tr id="mgmt-row-{{ svc.id }}">
+    <td><span class="status-dot {{ 'enabled' if svc.enabled else 'disabled' }}"></span></td>
+    <td><input type="text" name="name" value="{{ svc.name }}" class="mgmt-input" required form="edit-{{ svc.id }}"></td>
+    <td><input type="text" name="path_prefix" value="{{ svc.path_prefix }}" class="mgmt-input mgmt-mono" required form="edit-{{ svc.id }}"></td>
+    <td>
+        <input type="text" name="target_host" value="{{ svc.target_host }}" class="mgmt-input mgmt-host" form="edit-{{ svc.id }}">
+        :<input type="number" name="target_port" value="{{ svc.target_port }}" class="mgmt-input mgmt-port" required form="edit-{{ svc.id }}">
+    </td>
+    <td class="mgmt-actions">
+        <form id="edit-{{ svc.id }}" hx-put="/api/services/mgmt/{{ svc.id }}" hx-target="#mgmt-panel" hx-swap="innerHTML" style="display:inline">
+            <button type="submit" class="mgmt-link">保存</button>
+        </form>
+        <span class="mgmt-link" hx-get="/api/services/mgmt" hx-target="#mgmt-panel" hx-swap="innerHTML">取消</span>
+    </td>
+</tr>

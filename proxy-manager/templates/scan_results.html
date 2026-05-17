@@ -1,0 +1,36 @@
+{% if detected %}
+<div class="scan-section">
+    <h3 class="mgmt-title">自动探测结果</h3>
+    <table class="mgmt-table">
+        <thead>
+            <tr>
+                <th>端口</th>
+                <th>名称</th>
+                <th>路径前缀</th>
+                <th>服务</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for svc in detected %}
+            <tr id="scan-{{ svc.port }}">
+                <td><span class="scan-port">:{{ svc.port }}</span></td>
+                <td><input type="text" name="name" value="{{ svc.name }}" class="mgmt-input" required form="add-{{ svc.port }}"></td>
+                <td><input type="text" name="path_prefix" value="svc-{{ svc.port }}" class="mgmt-input mgmt-mono" required form="add-{{ svc.port }}"></td>
+                <td class="scan-server">{{ svc.server }}</td>
+                <td class="mgmt-actions">
+                    <form id="add-{{ svc.port }}" hx-post="/api/services" hx-target="#service-list" hx-swap="outerHTML" hx-indicator="#scan-{{ svc.port }} .mgmt-link" style="display:inline">
+                        <input type="hidden" name="target_port" value="{{ svc.port }}">
+                        <input type="hidden" name="target_host" value="localhost">
+                        <input type="hidden" name="auto_detected" value="true">
+                        <button type="submit" class="mgmt-link" hx-confirm="添加 {{ svc.name }}？" hx-on:htmx:before-request="this.disabled=true" hx-on:htmx:after-request="this.disabled=false"><span class="mgmt-link-text">添加</span><span class="mgmt-loading">添加中</span></button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<p class="muted">未探测到新服务</p>
+{% endif %}

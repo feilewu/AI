@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}日志 - {{ node.name }} - Node Manager{% endblock %}
+{% block content %}
+<div class="breadcrumb">
+    <a href="/nodes/{{ node.id }}" hx-get="/nodes/{{ node.id }}" hx-target="#content" hx-push-url="true">← {{ node.name }}</a>
+</div>
+<h1>日志查看</h1>
+<div class="status-bar">
+    <span class="status-dot {{ node.status }}"></span>
+    {{ '在线' if node.status == 'online' else '离线' }}
+</div>
+
+{% if node.status == 'online' %}
+<div class="log-controls">
+    <div class="log-input-row">
+        <input type="text" id="log-service" class="cmd-input" placeholder="服务名（可选，如 nginx）" style="flex:1;">
+        <input type="number" id="log-lines" class="cmd-input" value="100" min="10" max="5000" style="width:100px;">
+        <button class="btn" hx-get="/nodes/{{ node.id }}/logs/fetch" hx-target="#log-output" hx-swap="innerHTML" hx-vals='{"source":"","lines":100}' onclick="
+            this.setAttribute('hx-vals', JSON.stringify({
+                source: document.getElementById('log-service').value,
+                lines: parseInt(document.getElementById('log-lines').value) || 100
+            }));
+            htmx.trigger(this, 'htmx:trigger');
+            return false;
+        ">获取日志</button>
+    </div>
+    <div class="cmd-quick">
+        <button class="btn-sm" hx-get="/nodes/{{ node.id }}/logs/fetch" hx-target="#log-output" hx-swap="innerHTML" hx-vals='{"source":"","lines":50}'>全部 (50行)</button>
+        <button class="btn-sm" hx-get="/nodes/{{ node.id }}/logs/fetch" hx-target="#log-output" hx-swap="innerHTML" hx-vals='{"source":"ssh","lines":100}'>ssh</button>
+        <button class="btn-sm" hx-get="/nodes/{{ node.id }}/logs/fetch" hx-target="#log-output" hx-swap="innerHTML" hx-vals='{"source":"nginx","lines":100}'>nginx</button>
+        <button class="btn-sm" hx-get="/nodes/{{ node.id }}/logs/fetch" hx-target="#log-output" hx-swap="innerHTML" hx-vals='{"source":"docker","lines":100}'>docker</button>
+        <button class="btn-sm" hx-get="/nodes/{{ node.id }}/logs/fetch" hx-target="#log-output" hx-swap="innerHTML" hx-vals='{"source":"sshd","lines":100}'>sshd</button>
+    </div>
+</div>
+
+<div id="log-output" class="log-output-box">
+    <pre class="log-output muted">选择服务并点击"获取日志"查看</pre>
+</div>
+{% else %}
+<div class="log-output-box">
+    <pre class="log-output error">节点离线，无法获取日志</pre>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,9 @@
+services:
+  node-manager:
+    build: server
+    ports:
+      - "8902:8902"
+    volumes:
+      - ./server/data:/app/data
+      - ./server/config.yaml:/app/config.yaml
+    restart: unless-stopped

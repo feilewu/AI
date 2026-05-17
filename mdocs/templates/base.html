@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}MDocs{% endblock %}</title>
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>{{ pygments_css|safe }}</style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <header>
+        <button class="menu-btn" id="menuBtn" aria-label="切换菜单">☰</button>
+        <a href="/">MDocs</a>
+        <form class="search-form" action="/search" method="get">
+            <input type="text" name="q" placeholder="搜索文档..." value="{{ query or '' }}">
+            <button type="submit">搜索</button>
+        </form>
+    </header>
+    <div class="layout">
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+        <nav class="sidebar" id="sidebar">
+            {{ tree_html|safe }}
+        </nav>
+        <main class="content" id="content">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+    <script>
+        function toggleDir(el) {
+            el.classList.toggle('collapsed');
+            var ul = el.nextElementSibling;
+            if (ul && ul.tagName === 'UL') {
+                ul.style.display = ul.style.display === 'none' ? '' : 'none';
+            }
+        }
+        (function() {
+            var btn = document.getElementById('menuBtn');
+            var sidebar = document.getElementById('sidebar');
+            var overlay = document.getElementById('sidebarOverlay');
+            function closeSidebar() {
+                sidebar.classList.remove('open');
+                overlay.classList.remove('show');
+                document.body.style.overflow = '';
+            }
+            if (btn) {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    sidebar.classList.toggle('open');
+                    overlay.classList.toggle('show');
+                    document.body.style.overflow = sidebar.classList.contains('open') ? 'hidden' : '';
+                });
+            }
+            if (overlay) {
+                overlay.addEventListener('click', closeSidebar);
+            }
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') closeSidebar();
+            });
+        })();
+    </script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Node Manager{% endblock %}
+{% block content %}
+<h1>节点状态</h1>
+<div class="auto-refresh" hx-get="/" hx-trigger="every 10s" hx-target="#content" hx-swap="outerHTML">自动刷新中...</div>
+<div class="node-grid">
+    {% for node in nodes %}
+    <div class="node-card {{ 'online' if node.status == 'online' else 'offline' }}"
+         hx-get="/nodes/{{ node.id }}" hx-target="#content" hx-push-url="true">
+        <div class="node-header">
+            <span class="status-dot {{ node.status }}"></span>
+            <strong>{{ node.name }}</strong>
+            <span class="node-id">{{ node.id }}</span>
+        </div>
+        {% if node.cpu_pct is not none %}
+        <div class="metrics-row">
+            <span class="metric">CPU {{ node.cpu_pct }}%</span>
+            <span class="metric">MEM {{ node.memory_pct }}%</span>
+            <span class="metric">DISK {{ node.disk_pct }}%</span>
+        </div>
+        {% else %}
+        <div class="metrics-row muted">暂无数据</div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

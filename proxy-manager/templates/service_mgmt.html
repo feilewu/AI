@@ -1,0 +1,54 @@
+<div class="mgmt-panel">
+    <div class="mgmt-toolbar">
+        <button class="btn" hx-get="/api/services/scan" hx-target="#scan-results" hx-swap="innerHTML">扫描服务</button>
+        <button class="btn btn-outline" onclick="document.getElementById('add-form').classList.toggle('hidden')">添加服务</button>
+        <span class="mgmt-close" onclick="document.getElementById('mgmt-panel').classList.add('hidden')">✕</span>
+    </div>
+
+    <div id="add-form" class="add-form hidden">
+        <form hx-post="/api/services/mgmt/add" hx-target="#mgmt-panel" hx-swap="innerHTML" hx-on::after-request="this.reset();document.getElementById('add-form').classList.add('hidden')">
+            <div class="form-row">
+                <input type="text" name="name" placeholder="名称" required>
+                <input type="text" name="path_prefix" placeholder="路径前缀" required>
+                <input type="number" name="target_port" placeholder="端口" required>
+                <input type="text" name="target_host" value="localhost" placeholder="主机">
+                <button type="submit" class="btn">保存</button>
+                <button type="button" class="btn btn-outline" onclick="document.getElementById('add-form').classList.add('hidden')">取消</button>
+            </div>
+        </form>
+    </div>
+
+    <span id="scan-indicator" class="htmx-indicator">扫描中...</span>
+    <div id="scan-results"></div>
+
+    <h3 class="mgmt-title">服务列表</h3>
+    <table class="mgmt-table">
+        <thead>
+            <tr>
+                <th></th>
+                <th>名称</th>
+                <th>路径前缀</th>
+                <th>目标</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for svc in services %}
+            <tr id="mgmt-row-{{ svc.id }}">
+                <td><span class="status-dot {{ 'enabled' if svc.enabled else 'disabled' }}"></span></td>
+                <td class="mgmt-name">{{ svc.name }}</td>
+                <td><code>{{ svc.path_prefix }}</code></td>
+                <td class="mgmt-target">{{ svc.target_host }}:{{ svc.target_port }}</td>
+                <td class="mgmt-actions">
+                    <span class="mgmt-link" hx-get="/api/services/mgmt/{{ svc.id }}/edit" hx-target="#mgmt-row-{{ svc.id }}" hx-swap="outerHTML">编辑</span>
+                    <span class="mgmt-link mgmt-danger" hx-delete="/api/services/mgmt/{{ svc.id }}" hx-target="#mgmt-panel" hx-swap="innerHTML" hx-confirm="删除 {{ svc.name }}？">删除</span>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if not services %}
+    <p class="muted">暂无服务</p>
+    {% endif %}
+</div>

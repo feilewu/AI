@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}MDocs{% endblock %}
+{% block content %}
+{% if doc_html %}
+    {{ doc_html|safe }}
+{% else %}
+    <div class="empty-state">
+        <h2>欢迎使用 MDocs</h2>
+        <p>从左侧目录树选择文档查看</p>
+    </div>
+{% endif %}
+{% endblock %}

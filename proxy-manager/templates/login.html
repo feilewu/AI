@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}登录 - Proxy Manager{% endblock %}
+{% block content %}
+<div class="login-wrap">
+    <form class="login-form" method="post" action="/login">
+        <h2>管理面板登录</h2>
+        {% if error %}
+        <p class="login-error">密码错误</p>
+        {% endif %}
+        <input type="password" name="password" placeholder="输入管理密码" autofocus required>
+        <button type="submit" class="btn">登录</button>
+        <a href="/" class="btn btn-outline" style="text-align:center">返回首页</a>
+    </form>
+</div>
+{% endblock %}

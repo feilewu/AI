@@ -1,0 +1,4 @@
+__pycache__
+*.pyc
+.gitkeep
+data/node-manager.db

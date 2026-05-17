@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}搜索: {{ query }} - MDocs{% endblock %}
+{% block content %}
+<h2>搜索: "{{ query }}"</h2>
+<p style="color:#888;margin-bottom:16px;">共 {{ results|length }} 条结果</p>
+{% if results %}
+    {% for r in results %}
+    <div class="result-item">
+        <a href="/view/{{ r.path }}" hx-get="/view/{{ r.path }}" hx-target="#content" hx-push-url="true">{{ r.title }}</a>
+        <div class="path">{{ r.path }}</div>
+        {% if r.snippet %}
+        <div class="snippet">{{ r.snippet|safe }}</div>
+        {% endif %}
+    </div>
+    {% endfor %}
+{% else %}
+    <p>未找到匹配结果。</p>
+{% endif %}
+{% endblock %}

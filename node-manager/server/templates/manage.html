@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}节点管理 - Node Manager{% endblock %}
+{% block content %}
+<h1>节点管理</h1>
+
+<h2>添加节点</h2>
+<form class="manage-form" hx-post="/api/nodes" hx-target="#add-result" hx-swap="innerHTML">
+    <div class="form-row">
+        <label>节点 ID</label>
+        <input type="text" name="id" class="cmd-input" placeholder="留空自动生成" style="flex:2;">
+    </div>
+    <div class="form-row">
+        <label>显示名称</label>
+        <input type="text" name="name" class="cmd-input" placeholder="如: Web Server" required style="flex:2;">
+    </div>
+    <div class="form-row">
+        <label>Token</label>
+        <input type="text" name="token" class="cmd-input" placeholder="留空自动生成" style="flex:2;">
+    </div>
+    <button type="submit" class="btn">添加节点</button>
+</form>
+<div id="add-result"></div>
+
+<h2>已有节点</h2>
+<table>
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>名称</th>
+            <th>状态</th>
+            <th>Token</th>
+            <th>最后上报</th>
+            <th>操作</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for node in nodes %}
+        <tr>
+            <td>{{ node.id }}</td>
+            <td>{{ node.name }}</td>
+            <td><span class="status-dot {{ node.status }}"></span> {{ node.status }}</td>
+            <td><code class="token-text">{{ node.token[:16] }}...</code></td>
+            <td>{{ node.last_seen or '-' }}</td>
+            <td>
+                <button class="btn-sm btn-danger" hx-delete="/api/nodes/{{ node.id }}" hx-target="closest tr" hx-swap="outerHTML" hx-confirm="确定删除节点 {{ node.name }}？">删除</button>
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

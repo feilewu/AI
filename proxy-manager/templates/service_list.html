@@ -1,0 +1,29 @@
+<div id="service-list" class="service-grid">
+    {% if services %}
+        {% for svc in services %}
+        <a href="/{{ svc.path_prefix }}" class="service-card" id="svc-{{ svc.id }}" target="_blank">
+            <div class="card-top">
+                <div class="card-title-row">
+                    <span class="status-dot {{ 'enabled' if svc.enabled else 'disabled' }}"></span>
+                    <span class="service-name">{{ svc.name }}</span>
+                    <span class="source-badge {{ 'auto' if svc.auto_detected else 'manual' }}">
+                        {{ '自动发现' if svc.auto_detected else '手动添加' }}
+                    </span>
+                </div>
+                <div class="card-meta">
+                    <div class="meta-item">
+                        <span class="meta-label">路径</span>
+                        <span class="meta-value">/<code>{{ svc.path_prefix }}</code></span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">目标</span>
+                        <span class="meta-value">{{ svc.target_host }}:{{ svc.target_port }}</span>
+                    </div>
+                </div>
+            </div>
+        </a>
+        {% endfor %}
+    {% else %}
+        <p class="muted">暂无托管服务，点击"扫描服务"自动发现或手动添加</p>
+    {% endif %}
+</div>
