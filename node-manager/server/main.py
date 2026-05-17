@@ -185,7 +185,8 @@ async def node_detail(node_id: str, request: Request):
     latest = db.get_latest_metrics(node_id)
     history = db.get_metrics_history(node_id, limit=60)
     commands = db.get_node_commands(node_id, limit=20)
-    return render_page("node_detail.html", request=request, title=f"{node['name']} - Node Manager", node=node, latest=latest, history=history, commands=commands)
+    releases = db.get_releases()
+    return render_page("node_detail.html", request=request, title=f"{node['name']} - Node Manager", node=node, latest=latest, history=history, commands=commands, releases=releases)
 
 
 @app.get("/nodes/{node_id}/command", response_class=HTMLResponse)
@@ -226,8 +227,13 @@ async def node_logs_fetch(node_id: str, source: str = "", lines: int = 100):
 @app.get("/manage", response_class=HTMLResponse)
 async def manage_page(request: Request):
     nodes = db.get_nodes()
+    return render_page("manage.html", request=request, title="节点管理 - Node Manager", nodes=nodes)
+
+
+@app.get("/versions", response_class=HTMLResponse)
+async def versions_page(request: Request):
     releases = db.get_releases()
-    return render_page("manage.html", request=request, title="节点管理 - Node Manager", nodes=nodes, releases=releases)
+    return render_page("versions.html", request=request, title="版本管理 - Node Manager", releases=releases)
 
 
 # ── REST API ───────────────────────────────────────────────────────────
@@ -360,24 +366,46 @@ async def api_download_release(version: str):
     )
 
 
+@app.post("/api/upgrade-all")
+async def api_upgrade_all(version: str = ""):
+    release = db.get_release(version) if version else db.get_latest_release()
+    if not release:
+        return JSONResponse({"error": "没有可用的 release"}, status_code=400)
+    msg = json.dumps({
+        "type": "update_available",
+        "version": release["version"],
+        "download_url": f"/api/releases/{release['version']}/download",
+        "checksum_sha256": release["checksum_sha256"],
+        "file_size": release["file_size"],
+    })
+    count = 0
+    for nid, ws in list(active_connections.items()):
+        try:
+            await ws.send_text(msg)
+            count += 1
+        except Exception:
+            pass
+    return JSONResponse({"status": f"已通知 {count} 个节点", "version": release["version"]})
+
+
 @app.post("/api/nodes/{node_id}/upgrade")
-async def api_upgrade_node(node_id: str):
+async def api_upgrade_node(node_id: str, version: str = ""):
     ws = active_connections.get(node_id)
     if not ws:
         return JSONResponse({"error": "节点离线"}, status_code=400)
-    latest = db.get_latest_release()
-    if not latest:
+    release = db.get_release(version) if version else db.get_latest_release()
+    if not release:
         return JSONResponse({"error": "没有可用的 release"}, status_code=400)
     try:
         msg = json.dumps({
             "type": "update_available",
-            "version": latest["version"],
-            "download_url": f"/api/releases/{latest['version']}/download",
-            "checksum_sha256": latest["checksum_sha256"],
-            "file_size": latest["file_size"],
+            "version": release["version"],
+            "download_url": f"/api/releases/{release['version']}/download",
+            "checksum_sha256": release["checksum_sha256"],
+            "file_size": release["file_size"],
         })
         await ws.send_text(msg)
-        return JSONResponse({"status": "update dispatched", "version": latest["version"]})
+        return JSONResponse({"status": "update dispatched", "version": release["version"]})
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 

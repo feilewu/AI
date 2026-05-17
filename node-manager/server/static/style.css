@@ -238,3 +238,6 @@ tr:nth-child(even) { background: var(--bg-subtle); }
 .form-row label { font-size: 13px; font-weight: 600; min-width: 80px; }
 .token-text { font-size: 11px; color: var(--text-muted); }
 .muted { color: var(--text-muted); }
+
+.charts-grid { display: grid; gap: 16px; grid-template-columns: 1fr; margin-bottom: 2em; }
+.chart-card { background: var(--bg-subtle); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; height: 260px; }

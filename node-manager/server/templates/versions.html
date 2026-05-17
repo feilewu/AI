@@ -1,0 +1,56 @@
+<h1>版本管理</h1>
+
+<h2>上传新版本</h2>
+<form class="manage-form" hx-post="/api/releases" hx-target="#release-result" hx-swap="innerHTML" hx-encoding="multipart/form-data">
+    <div class="form-row">
+        <label>版本号</label>
+        <input type="text" name="version" class="cmd-input" placeholder="如: 1.0.0" required style="flex:1;">
+    </div>
+    <div class="form-row">
+        <label>二进制文件</label>
+        <input type="file" name="file" class="cmd-input" required style="flex:1;">
+    </div>
+    <button type="submit" class="btn">上传</button>
+</form>
+<div id="release-result"></div>
+
+<div class="form-row" style="margin-top:12px;">
+    <label style="min-width:auto;">批量更新</label>
+    {% if releases %}
+    <select id="bulk-upgrade-version" style="padding:4px 8px; font-size:13px; border:1px solid var(--border); border-radius:4px; background:var(--bg); color:var(--text);">
+        {% for r in releases %}
+        <option value="{{ r.version }}" {% if loop.first %}selected{% endif %}>{{ r.version }}</option>
+        {% endfor %}
+    </select>
+    <button class="btn-sm" hx-post="/api/upgrade-all" hx-vals='js:{version: document.getElementById("bulk-upgrade-version").value}' hx-target="#bulk-upgrade-result" hx-swap="innerHTML">通知所有节点更新</button>
+    <span id="bulk-upgrade-result" style="margin-left:4px;"></span>
+    {% else %}
+    <span class="muted">请先上传版本</span>
+    {% endif %}
+</div>
+
+<h2>已上传版本</h2>
+{% if releases %}
+<table>
+    <thead>
+        <tr>
+            <th>版本</th>
+            <th>大小</th>
+            <th>SHA256</th>
+            <th>上传时间</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for r in releases %}
+        <tr>
+            <td>{{ r.version }}</td>
+            <td>{{ '{:.1f}'.format(r.file_size / 1024 / 1024) }} MB</td>
+            <td><code style="font-size:11px">{{ r.checksum_sha256[:16] }}...</code></td>
+            <td>{{ r.created_at }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="muted">暂无版本</p>
+{% endif %}

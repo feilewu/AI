@@ -5,12 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title|default("Node Manager") }}</title>
     <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
     <header>
         <a href="/">Node Manager</a>
-        <a href="/manage" class="nav-link">管理</a>
+        <a href="/manage" class="nav-link">节点</a>
+        <a href="/versions" class="nav-link">版本</a>
     </header>
     <div class="content" id="content">
         {{ content|safe }}

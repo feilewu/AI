@@ -9,10 +9,15 @@
     {% if node.last_seen %} | 最后上报: {{ node.last_seen }}{% endif %}
 </div>
 
-<div class="status-bar" style="margin-top:-0.5em; font-size:13px;">
+<div class="status-bar" style="margin-top:-0.5em; font-size:13px; flex-wrap:wrap;">
     Agent 版本: {{ node.agent_version or '未知' }}
-    {% if node.status == 'online' %}
-    <button class="btn-sm" hx-post="/api/nodes/{{ node.id }}/upgrade" hx-target="#upgrade-result" hx-swap="innerHTML" style="margin-left:8px;">立即更新</button>
+    {% if node.status == 'online' and releases %}
+    <select id="upgrade-version" style="margin-left:8px; padding:2px 6px; font-size:12px; border:1px solid var(--border); border-radius:4px; background:var(--bg); color:var(--text);">
+        {% for r in releases %}
+        <option value="{{ r.version }}" {% if loop.first %}selected{% endif %}>{{ r.version }}</option>
+        {% endfor %}
+    </select>
+    <button class="btn-sm" hx-post="/api/nodes/{{ node.id }}/upgrade" hx-vals='js:{version: document.getElementById("upgrade-version").value}' hx-target="#upgrade-result" hx-swap="innerHTML" style="margin-left:4px;">更新到此版本</button>
     <span id="upgrade-result" style="margin-left:4px;"></span>
     {% endif %}
 </div>
@@ -54,34 +59,98 @@
 </div>
 
 <h2>历史指标</h2>
-<div class="table-scroll">
-<table>
-    <thead>
-        <tr>
-            <th>时间</th>
-            <th>CPU</th>
-            <th>内存</th>
-            <th>磁盘</th>
-            <th>网络(RX)</th>
-            <th>网络(TX)</th>
-            <th>负载</th>
-        </tr>
-    </thead>
-    <tbody>
-    {% for m in history %}
-        <tr>
-            <td>{{ m.ts }}</td>
-            <td>{{ '%.1f'|format(m.cpu_pct) }}%</td>
-            <td>{{ '%.1f'|format(m.memory_pct) }}%</td>
-            <td>{{ '%.1f'|format(m.disk_pct) }}%</td>
-            <td>{{ '%.1f'|format(m.net_rx_bytes / 1024 / 1024) if m.net_rx_bytes else '-' }} MB</td>
-            <td>{{ '%.1f'|format(m.net_tx_bytes / 1024 / 1024) if m.net_tx_bytes else '-' }} MB</td>
-            <td>{{ '%.2f'|format(m.load_1m) }}</td>
-        </tr>
-    {% endfor %}
-    </tbody>
-</table>
+<div class="charts-grid">
+    <div class="chart-card">
+        <canvas id="cpuChart"></canvas>
+    </div>
+    <div class="chart-card">
+        <canvas id="netChart"></canvas>
+    </div>
+    <div class="chart-card">
+        <canvas id="loadChart"></canvas>
+    </div>
 </div>
+
+<script>
+(function() {
+    var labels = [
+        {% for m in history | reverse %}
+        '{{ m.ts[:16] }}'{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ];
+    var cpuData = [{% for m in history | reverse %}{{ '%.1f'|format(m.cpu_pct) }}{% if not loop.last %},{% endif %}{% endfor %}];
+    var memData = [{% for m in history | reverse %}{{ '%.1f'|format(m.memory_pct) }}{% if not loop.last %},{% endif %}{% endfor %}];
+    var diskData = [{% for m in history | reverse %}{{ '%.1f'|format(m.disk_pct) }}{% if not loop.last %},{% endif %}{% endfor %}];
+    var rxData = [{% for m in history | reverse %}{{ '%.1f'|format(m.net_rx_bytes / 1024 / 1024) if m.net_rx_bytes else 0 }}{% if not loop.last %},{% endif %}{% endfor %}];
+    var txData = [{% for m in history | reverse %}{{ '%.1f'|format(m.net_tx_bytes / 1024 / 1024) if m.net_tx_bytes else 0 }}{% if not loop.last %},{% endif %}{% endfor %}];
+    var load1Data = [{% for m in history | reverse %}{{ '%.2f'|format(m.load_1m) }}{% if not loop.last %},{% endif %}{% endfor %}];
+    var load5Data = [{% for m in history | reverse %}{{ '%.2f'|format(m.load_5m) }}{% if not loop.last %},{% endif %}{% endfor %}];
+    var load15Data = [{% for m in history | reverse %}{{ '%.2f'|format(m.load_15m) }}{% if not loop.last %},{% endif %}{% endfor %}];
+
+    var isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var textColor = isDark ? '#8b949e' : '#5c6b7e';
+    var gridColor = isDark ? '#30363d' : '#e2e6ed';
+
+    new Chart(document.getElementById('cpuChart'), {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                { label: 'CPU', data: cpuData, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.1)', fill: true, tension: 0.3, pointRadius: 0 },
+                { label: '内存', data: memData, borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.1)', fill: true, tension: 0.3, pointRadius: 0 },
+                { label: '磁盘', data: diskData, borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.1)', fill: true, tension: 0.3, pointRadius: 0 }
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { labels: { color: textColor, boxWidth: 12, padding: 8 } } },
+            scales: {
+                x: { ticks: { color: textColor, maxTicksLimit: 8, font: { size: 10 } }, grid: { color: gridColor } },
+                y: { min: 0, max: 100, ticks: { color: textColor, font: { size: 10 }, callback: function(v) { return v + '%'; } }, grid: { color: gridColor } }
+            }
+        }
+    });
+
+    new Chart(document.getElementById('netChart'), {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                { label: 'RX', data: rxData, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.1)', fill: true, tension: 0.3, pointRadius: 0 },
+                { label: 'TX', data: txData, borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.1)', fill: true, tension: 0.3, pointRadius: 0 }
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { labels: { color: textColor, boxWidth: 12, padding: 8 } } },
+            scales: {
+                x: { ticks: { color: textColor, maxTicksLimit: 8, font: { size: 10 } }, grid: { color: gridColor } },
+                y: { ticks: { color: textColor, font: { size: 10 }, callback: function(v) { return v + ' MB'; } }, grid: { color: gridColor } }
+            }
+        }
+    });
+
+    new Chart(document.getElementById('loadChart'), {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                { label: 'load 1m', data: load1Data, borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.1)', fill: true, tension: 0.3, pointRadius: 0 },
+                { label: 'load 5m', data: load5Data, borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.1)', fill: true, tension: 0.3, pointRadius: 0 },
+                { label: 'load 15m', data: load15Data, borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.1)', fill: true, tension: 0.3, pointRadius: 0 }
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { labels: { color: textColor, boxWidth: 12, padding: 8 } } },
+            scales: {
+                x: { ticks: { color: textColor, maxTicksLimit: 8, font: { size: 10 } }, grid: { color: gridColor } },
+                y: { ticks: { color: textColor, font: { size: 10 } }, grid: { color: gridColor } }
+            }
+        }
+    });
+})();
+</script>
 
 <h2>最近命令</h2>
 <div class="compact-list">
