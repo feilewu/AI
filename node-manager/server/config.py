@@ -8,6 +8,7 @@ class Config:
     host: str = "0.0.0.0"
     port: int = 8000
     db_path: str = "data/node-manager.db"
+    releases_dir: str = "data/releases"
     root_path: str = ""
 
 

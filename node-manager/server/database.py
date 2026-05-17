@@ -42,6 +42,14 @@ class Database:
                 load_15m REAL
             );
 
+            CREATE TABLE IF NOT EXISTS releases (
+                version TEXT PRIMARY KEY,
+                file_path TEXT NOT NULL,
+                file_size INTEGER NOT NULL DEFAULT 0,
+                checksum_sha256 TEXT NOT NULL DEFAULT '',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+
             CREATE TABLE IF NOT EXISTS commands (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 node_id TEXT NOT NULL,
@@ -62,6 +70,10 @@ class Database:
         for col in ("net_rx_bytes", "net_tx_bytes"):
             if col not in existing:
                 self.conn.execute(f"ALTER TABLE metrics ADD COLUMN {col} INTEGER")
+
+        existing_cols = [r[1] for r in self.conn.execute("PRAGMA table_info(nodes)").fetchall()]
+        if "agent_version" not in existing_cols:
+            self.conn.execute("ALTER TABLE nodes ADD COLUMN agent_version TEXT DEFAULT ''")
 
     def register_node(self, node_id: str, name: str, token: str):
         self.conn.execute(
@@ -182,4 +194,27 @@ class Database:
         self.conn.execute(
             "UPDATE nodes SET token = ? WHERE id = ?", (new_token, node_id)
         )
+        self.conn.commit()
+
+    def save_release(self, version: str, file_path: str, file_size: int, checksum_sha256: str):
+        self.conn.execute(
+            "INSERT OR REPLACE INTO releases (version, file_path, file_size, checksum_sha256) VALUES (?, ?, ?, ?)",
+            (version, file_path, file_size, checksum_sha256),
+        )
+        self.conn.commit()
+
+    def get_release(self, version: str) -> dict | None:
+        row = self.conn.execute("SELECT * FROM releases WHERE version = ?", (version,)).fetchone()
+        return dict(row) if row else None
+
+    def get_latest_release(self) -> dict | None:
+        row = self.conn.execute("SELECT * FROM releases ORDER BY created_at DESC LIMIT 1").fetchone()
+        return dict(row) if row else None
+
+    def get_releases(self) -> list:
+        rows = self.conn.execute("SELECT * FROM releases ORDER BY created_at DESC").fetchall()
+        return [dict(r) for r in rows]
+
+    def update_agent_version(self, node_id: str, agent_version: str):
+        self.conn.execute("UPDATE nodes SET agent_version = ? WHERE id = ?", (agent_version, node_id))
         self.conn.commit()
