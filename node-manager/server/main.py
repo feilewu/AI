@@ -225,7 +225,8 @@ async def node_logs_fetch(node_id: str, source: str = "", lines: int = 100):
 @app.get("/manage", response_class=HTMLResponse)
 async def manage_page(request: Request):
     nodes = db.get_nodes()
-    return render_page("manage.html", request=request, title="节点管理 - Node Manager", nodes=nodes)
+    releases = db.get_releases()
+    return render_page("manage.html", request=request, title="节点管理 - Node Manager", nodes=nodes, releases=releases)
 
 
 # ── REST API ───────────────────────────────────────────────────────────
@@ -354,6 +355,28 @@ async def api_download_release(version: str):
         media_type="application/octet-stream",
         filename=f"node-agent-{version}",
     )
+
+
+@app.post("/api/nodes/{node_id}/upgrade")
+async def api_upgrade_node(node_id: str):
+    ws = active_connections.get(node_id)
+    if not ws:
+        return JSONResponse({"error": "节点离线"}, status_code=400)
+    latest = db.get_latest_release()
+    if not latest:
+        return JSONResponse({"error": "没有可用的 release"}, status_code=400)
+    try:
+        msg = json.dumps({
+            "type": "update_available",
+            "version": latest["version"],
+            "download_url": f"/api/releases/{latest['version']}/download",
+            "checksum_sha256": latest["checksum_sha256"],
+            "file_size": latest["file_size"],
+        })
+        await ws.send_text(msg)
+        return JSONResponse({"status": "update dispatched", "version": latest["version"]})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 
 @app.get("/api/nodes/{node_id}/commands")

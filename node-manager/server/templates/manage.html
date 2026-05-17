@@ -18,6 +18,46 @@
 </form>
 <div id="add-result"></div>
 
+<h2>Agent 版本管理</h2>
+<form class="manage-form" hx-post="/api/releases" hx-target="#release-result" hx-swap="innerHTML" hx-encoding="multipart/form-data">
+    <div class="form-row">
+        <label>版本号</label>
+        <input type="text" name="version" class="cmd-input" placeholder="如: 1.0.0" required style="flex:1;">
+    </div>
+    <div class="form-row">
+        <label>二进制文件</label>
+        <input type="file" name="file" class="cmd-input" required style="flex:1;">
+    </div>
+    <button type="submit" class="btn">上传</button>
+</form>
+<div id="release-result"></div>
+
+<h3>已上传版本</h3>
+{% if releases %}
+<table>
+    <thead>
+        <tr>
+            <th>版本</th>
+            <th>大小</th>
+            <th>SHA256</th>
+            <th>上传时间</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for r in releases %}
+        <tr>
+            <td>{{ r.version }}</td>
+            <td>{{ '{:.1f}'.format(r.file_size / 1024 / 1024) }} MB</td>
+            <td><code style="font-size:11px">{{ r.checksum_sha256[:16] }}...</code></td>
+            <td>{{ r.created_at }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="muted">暂无版本</p>
+{% endif %}
+
 <h2>已有节点</h2>
 <table>
     <thead>
