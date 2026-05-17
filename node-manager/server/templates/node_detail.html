@@ -9,15 +9,13 @@
     {% if node.last_seen %} | 最后上报: {{ node.last_seen }}{% endif %}
 </div>
 
-{% if node.agent_version %}
-<div class="status-bar" style="margin-top:-1em; font-size:13px;">
-    Agent 版本: {{ node.agent_version }}
+<div class="status-bar" style="margin-top:-0.5em; font-size:13px;">
+    Agent 版本: {{ node.agent_version or '未知' }}
     {% if node.status == 'online' %}
     <button class="btn-sm" hx-post="/api/nodes/{{ node.id }}/upgrade" hx-target="#upgrade-result" hx-swap="innerHTML" style="margin-left:8px;">立即更新</button>
-    <span id="upgrade-result"></span>
+    <span id="upgrade-result" style="margin-left:4px;"></span>
     {% endif %}
 </div>
-{% endif %}
 
 <nav class="tab-nav">
     <a href="/nodes/{{ node.id }}" class="tab active">概览</a>
