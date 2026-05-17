@@ -6,12 +6,13 @@ sys.path.insert(0, str(BASE_DIR))
 
 import json
 import asyncio
+import hashlib
 import logging
 import secrets
 from datetime import datetime, timezone
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
-from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.responses import JSONResponse, HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from jinja2 import Environment, FileSystemLoader
 
@@ -110,6 +111,36 @@ async def dispatch_command(node_id: str, cmd_id: int, command: str) -> bool:
         await ws.send_text(msg)
         return True
     except Exception:
+        return False
+
+
+# ── Release 管理 ───────────────────────────────────────────────────────
+
+RELEASES_DIR = Path(config.releases_dir)
+
+
+async def broadcast_update(release: dict):
+    msg = json.dumps({
+        "type": "update_available",
+        "version": release["version"],
+        "download_url": f"/api/releases/{release['version']}/download",
+        "checksum_sha256": release["checksum_sha256"],
+        "file_size": release["file_size"],
+    })
+    for nid, ws in list(active_connections.items()):
+        try:
+            await ws.send_text(msg)
+        except Exception:
+            pass
+
+
+def _should_update(latest_ver: str, current_ver: str) -> bool:
+    def as_tuple(v: str) -> tuple:
+        parts = v.strip().split(".")
+        return tuple(int(p) for p in parts[:3])
+    try:
+        return as_tuple(latest_ver) > as_tuple(current_ver)
+    except (ValueError, IndexError):
         return False
 
 
@@ -239,6 +270,70 @@ async def api_send_command(node_id: str, request: Request):
         return HTMLResponse(html)
 
     return JSONResponse({"cmd_id": cmd_id, "dispatched": ok})
+
+
+# ── Release API ────────────────────────────────────────────────────────
+
+
+@app.post("/api/releases")
+async def api_upload_release(request: Request):
+    form = await request.form()
+    version = form.get("version", "").strip()
+    if not version:
+        return JSONResponse({"error": "version is required"}, status_code=400)
+
+    upload_file = form.get("file")
+    if not upload_file:
+        return JSONResponse({"error": "file is required"}, status_code=400)
+
+    release_dir = RELEASES_DIR / version
+    release_dir.mkdir(parents=True, exist_ok=True)
+    file_path = release_dir / "node-agent"
+
+    content = await upload_file.read()
+    file_path.write_bytes(content)
+
+    checksum = hashlib.sha256(content).hexdigest()
+    file_size = len(content)
+
+    db.save_release(version, str(file_path), file_size, checksum)
+
+    asyncio.create_task(broadcast_update({
+        "version": version,
+        "checksum_sha256": checksum,
+        "file_size": file_size,
+    }))
+
+    return JSONResponse({"version": version, "file_size": file_size, "checksum_sha256": checksum})
+
+
+@app.get("/api/releases")
+async def api_list_releases():
+    releases = db.get_releases()
+    return JSONResponse({"releases": releases})
+
+
+@app.get("/api/releases/latest")
+async def api_latest_release():
+    release = db.get_latest_release()
+    if not release:
+        return JSONResponse({"error": "no releases found"}, status_code=404)
+    return JSONResponse({"release": release})
+
+
+@app.get("/api/releases/{version}/download")
+async def api_download_release(version: str):
+    release = db.get_release(version)
+    if not release:
+        return JSONResponse({"error": "version not found"}, status_code=404)
+    file_path = Path(release["file_path"])
+    if not file_path.exists():
+        return JSONResponse({"error": "file not found"}, status_code=404)
+    return FileResponse(
+        str(file_path),
+        media_type="application/octet-stream",
+        filename=f"node-agent-{version}",
+    )
 
 
 @app.get("/api/nodes/{node_id}/commands")
