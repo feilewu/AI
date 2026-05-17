@@ -69,6 +69,20 @@ async def agent_websocket(ws: WebSocket):
         db.set_node_online(node_id)
         await ws.send_json({"type": "registered", "node_id": node_id})
 
+        # ── 版本检测 ──────────────────────────────
+        agent_version = data.get("agent_version", "")
+        if agent_version:
+            db.update_agent_version(node_id, agent_version)
+            latest = db.get_latest_release()
+            if latest and _should_update(latest["version"], agent_version):
+                await ws.send_json({
+                    "type": "update_available",
+                    "version": latest["version"],
+                    "download_url": f"/api/releases/{latest['version']}/download",
+                    "checksum_sha256": latest["checksum_sha256"],
+                    "file_size": latest["file_size"],
+                })
+
         while True:
             msg = await ws.receive_json()
             msg_type = msg.get("type")
@@ -86,6 +100,9 @@ async def agent_websocket(ws: WebSocket):
                 db.update_command_result(
                     msg["cmd_id"], msg.get("result", ""), msg.get("exit_code", -1)
                 )
+
+            elif msg_type == "update_status":
+                logger.info("Node %s update status: %s", node_id, msg.get("status"))
 
             else:
                 await ws.send_json({"error": f"unknown message type: {msg_type}"})
