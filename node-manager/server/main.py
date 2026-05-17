@@ -189,10 +189,10 @@ async def api_nodes():
 
 @app.post("/api/nodes")
 async def api_create_node(request: Request):
-    data = await request.json()
-    node_id = data.get("id") or f"node-{secrets.token_hex(4)}"
-    name = data.get("name", node_id)
-    token = data.get("token") or secrets.token_hex(16)
+    form = await request.form()
+    node_id = form.get("id") or f"node-{secrets.token_hex(4)}"
+    name = form.get("name", node_id)
+    token = form.get("token") or secrets.token_hex(16)
     db.register_node(node_id, name, token)
     return JSONResponse({"node_id": node_id, "token": token})
 
@@ -211,9 +211,15 @@ async def api_delete_node(node_id: str):
 
 @app.post("/api/nodes/{node_id}/command")
 async def api_send_command(node_id: str, request: Request):
-    data = await request.json()
-    cmd_type = data.get("type", "shell")
-    cmd_content = data.get("command", "")
+    content_type = request.headers.get("content-type", "")
+    if "application/json" in content_type:
+        data = await request.json()
+        cmd_type = data.get("type", "shell")
+        cmd_content = data.get("command", "")
+    else:
+        form = await request.form()
+        cmd_type = form.get("type", "shell")
+        cmd_content = form.get("command", "")
     if not cmd_content.strip():
         return JSONResponse({"error": "command is required"}, status_code=400)
 
