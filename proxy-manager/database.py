@@ -21,11 +21,19 @@ class Database:
                 target_port INTEGER NOT NULL,
                 enabled BOOLEAN DEFAULT TRUE,
                 auto_detected BOOLEAN DEFAULT FALSE,
+                protected_paths TEXT DEFAULT '',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
         self.conn.commit()
+        self._migrate()
+
+    def _migrate(self):
+        existing = [r[1] for r in self.conn.execute("PRAGMA table_info(services)").fetchall()]
+        if "protected_paths" not in existing:
+            self.conn.execute("ALTER TABLE services ADD COLUMN protected_paths TEXT DEFAULT ''")
+            self.conn.commit()
 
     def list_services(self) -> list[dict]:
         rows = self.conn.execute(
@@ -40,18 +48,19 @@ class Database:
         return dict(row) if row else None
 
     def add_service(self, name: str, path_prefix: str, target_port: int,
-                    target_host: str = "localhost", auto_detected: bool = False) -> int:
+                    target_host: str = "localhost", auto_detected: bool = False,
+                    protected_paths: str = "") -> int:
         cur = self.conn.execute(
-            """INSERT INTO services (name, path_prefix, target_host, target_port, auto_detected)
-               VALUES (?, ?, ?, ?, ?)""",
-            (name, path_prefix, target_host, target_port, auto_detected),
+            """INSERT INTO services (name, path_prefix, target_host, target_port, auto_detected, protected_paths)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (name, path_prefix, target_host, target_port, auto_detected, protected_paths),
         )
         self.conn.commit()
         return cur.lastrowid
 
     def update_service(self, service_id: int, name: str = None, path_prefix: str = None,
                        target_host: str = None, target_port: int = None,
-                       enabled: bool = None) -> bool:
+                       enabled: bool = None, protected_paths: str = None) -> bool:
         fields = []
         values = []
         if name is not None:
@@ -69,6 +78,9 @@ class Database:
         if enabled is not None:
             fields.append("enabled = ?")
             values.append(int(enabled))
+        if protected_paths is not None:
+            fields.append("protected_paths = ?")
+            values.append(protected_paths)
         if not fields:
             return False
         fields.append("updated_at = ?")

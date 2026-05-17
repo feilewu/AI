@@ -5,6 +5,7 @@
     <td>
         <input type="text" name="target_host" value="{{ svc.target_host }}" class="mgmt-input mgmt-host" form="edit-{{ svc.id }}">
         :<input type="number" name="target_port" value="{{ svc.target_port }}" class="mgmt-input mgmt-port" required form="edit-{{ svc.id }}">
+        <br><input type="text" name="protected_paths" value="{{ svc.protected_paths }}" class="mgmt-input" style="width:100%;margin-top:4px" placeholder="敏感路径 /manage*,/api/*" form="edit-{{ svc.id }}">
     </td>
     <td class="mgmt-actions">
         <form id="edit-{{ svc.id }}" hx-put="/api/services/mgmt/{{ svc.id }}" hx-target="#mgmt-panel" hx-swap="innerHTML" style="display:inline">

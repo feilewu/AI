@@ -9,6 +9,7 @@ import hmac
 import logging
 import secrets
 import time
+from urllib.parse import quote
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -66,35 +67,48 @@ def _is_authenticated(request: Request) -> bool:
     return bool(cookie and _verify_session(cookie))
 
 
+def _login_url(request: Request) -> str:
+    return f"/login?next={quote(request.url.path)}"
+
+
 def _check_auth(request: Request) -> HTMLResponse | RedirectResponse | None:
     if _is_authenticated(request):
         return None
     if request.headers.get("HX-Request") == "true":
-        return HTMLResponse("", headers={"HX-Redirect": "/login"})
-    return RedirectResponse(url="/login")
+        return HTMLResponse("", headers={"HX-Redirect": _login_url(request)})
+    return RedirectResponse(url=_login_url(request))
 
 
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
     if _is_authenticated(request):
+        next_url = request.query_params.get("next", "")
+        if next_url:
+            return RedirectResponse(url=next_url, status_code=302)
         return RedirectResponse(url="/", status_code=302)
     error = request.query_params.get("error", "")
+    next_url = request.query_params.get("next", "")
     template = env.get_template("login.html")
-    return template.render(error=error)
+    return template.render(error=error, next=next_url)
 
 
 @app.post("/login")
 async def login_submit(request: Request):
     data = await request.form()
     password = data.get("password", "")
+    next_url = data.get("next", "")
     if password == config.auth_password:
-        resp = RedirectResponse(url="/", status_code=302)
+        dest = next_url if next_url else "/"
+        resp = RedirectResponse(url=dest, status_code=302)
         resp.set_cookie(
             key=COOKIE_NAME, value=_sign_session(), max_age=SESSION_DURATION,
             httponly=True, samesite="lax",
         )
         return resp
-    return RedirectResponse(url="/login?error=1", status_code=302)
+    error_url = "/login?error=1"
+    if next_url:
+        error_url += f"&next={quote(next_url)}"
+    return RedirectResponse(url=error_url, status_code=302)
 
 
 @app.get("/logout")
@@ -106,6 +120,23 @@ async def logout():
 
 # ── Proxy Middleware ──────────────────────────────────────────────────
 
+def _match_protected_path(relative_path: str, patterns: str) -> bool:
+    if not patterns:
+        return False
+    for p in patterns.split(","):
+        p = p.strip()
+        if not p:
+            continue
+        if p.endswith("*"):
+            prefix = p[:-1]
+            if relative_path == prefix or relative_path.startswith(prefix):
+                return True
+        else:
+            if relative_path == p:
+                return True
+    return False
+
+
 @app.middleware("http")
 async def proxy_middleware(request: Request, call_next):
     path = request.url.path
@@ -116,6 +147,12 @@ async def proxy_middleware(request: Request, call_next):
     for svc in services:
         prefix = f"/{svc['path_prefix']}"
         if path == prefix or path.startswith(prefix + "/"):
+            protected = svc.get("protected_paths", "")
+            if protected:
+                relative_path = path[len(prefix):] if path != prefix else "/"
+                if _match_protected_path(relative_path, protected):
+                    if resp := _check_auth(request):
+                        return resp
             return await proxy_request(request, svc["target_host"], svc["target_port"], prefix)
 
     return await call_next(request)
@@ -156,6 +193,7 @@ async def api_add_service(request: Request):
     target_port = data.get("target_port")
     target_host = data.get("target_host", "localhost")
     auto_detected = data.get("auto_detected", "false") in ("true", "True", "1")
+    protected_paths = data.get("protected_paths", "").strip()
 
     if not name or not path_prefix or not target_port:
         if request.headers.get("HX-Request") == "true":
@@ -176,7 +214,7 @@ async def api_add_service(request: Request):
                 return HTMLResponse(f"<p class='muted'>路径前缀 '{path_prefix}' 已存在</p>")
             return JSONResponse({"error": f"path_prefix '{path_prefix}' already exists"}, status_code=409)
 
-    svc_id = db.add_service(name, path_prefix, target_port, target_host, auto_detected)
+    svc_id = db.add_service(name, path_prefix, target_port, target_host, auto_detected, protected_paths)
 
     if request.headers.get("HX-Request") == "true":
         template = env.get_template("service_list.html")
@@ -217,13 +255,14 @@ async def api_mgmt_add(request: Request):
     path_prefix = data.get("path_prefix", "").strip()
     target_port = data.get("target_port")
     target_host = data.get("target_host", "localhost")
+    protected_paths = data.get("protected_paths", "").strip()
     try:
         target_port = int(target_port)
     except (TypeError, ValueError):
         return HTMLResponse("<p class='muted'>端口必须是数字</p>")
     if not name or not path_prefix:
         return HTMLResponse("<p class='muted'>名称和路径前缀不能为空</p>")
-    db.add_service(name, path_prefix, target_port, target_host)
+    db.add_service(name, path_prefix, target_port, target_host, protected_paths=protected_paths)
     return _render_mgmt()
 
 
@@ -241,7 +280,7 @@ async def api_mgmt_update(request: Request, service_id: int):
         return resp
     data = await request.form()
     kwargs = {}
-    for key in ("name", "path_prefix", "target_host", "target_port", "enabled"):
+    for key in ("name", "path_prefix", "target_host", "target_port", "enabled", "protected_paths"):
         val = data.get(key)
         if val is not None:
             kwargs[key] = val
@@ -352,7 +391,7 @@ async def api_update_service(request: Request, service_id: int):
         return resp
     data = await request.form()
     kwargs = {}
-    for key in ("name", "path_prefix", "target_host", "target_port", "enabled"):
+    for key in ("name", "path_prefix", "target_host", "target_port", "enabled", "protected_paths"):
         val = data.get(key)
         if val is not None:
             kwargs[key] = val

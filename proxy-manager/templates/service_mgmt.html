@@ -12,6 +12,7 @@
                 <input type="text" name="path_prefix" placeholder="路径前缀" required>
                 <input type="number" name="target_port" placeholder="端口" required>
                 <input type="text" name="target_host" value="localhost" placeholder="主机">
+                <input type="text" name="protected_paths" placeholder="/manage*, /api/*" title="敏感路径（逗号分隔，支持*通配）">
                 <button type="submit" class="btn">保存</button>
                 <button type="button" class="btn btn-outline" onclick="document.getElementById('add-form').classList.add('hidden')">取消</button>
             </div>

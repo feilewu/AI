@@ -23,7 +23,7 @@ db = Database(config.db_path)
 
 env = Environment(loader=FileSystemLoader(str(BASE_DIR / "templates")))
 
-app = FastAPI(title="Node Manager")
+app = FastAPI(title="Node Manager", root_path=config.root_path)
 
 static_dir = BASE_DIR / "static"
 if static_dir.exists():
@@ -40,7 +40,8 @@ def render_page(template_name: str, request: Request = None, title: str = "Node 
     if request and request.headers.get("hx-request") == "true":
         return HTMLResponse(content)
     layout = env.get_template("base.html")
-    return HTMLResponse(layout.render(content=content, title=title))
+    ctx = {"content": content, "title": title}
+    return HTMLResponse(layout.render(**ctx))
 
 
 # ── WebSocket: Agent 接入 ──────────────────────────────────────────────

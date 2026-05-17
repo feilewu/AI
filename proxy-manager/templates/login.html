@@ -7,6 +7,9 @@
         {% if error %}
         <p class="login-error">密码错误</p>
         {% endif %}
+        {% if next %}
+        <input type="hidden" name="next" value="{{ next }}">
+        {% endif %}
         <input type="password" name="password" placeholder="输入管理密码" autofocus required>
         <button type="submit" class="btn">登录</button>
         <a href="/" class="btn btn-outline" style="text-align:center">返回首页</a>

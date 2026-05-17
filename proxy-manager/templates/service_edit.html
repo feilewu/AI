@@ -20,6 +20,12 @@
                         :<input type="number" name="target_port" value="{{ svc.target_port }}" class="edit-input edit-port" required>
                     </span>
                 </div>
+                <div class="meta-item">
+                    <span class="meta-label">敏感路径</span>
+                    <span class="meta-value" style="width:100%">
+                        <input type="text" name="protected_paths" value="{{ svc.protected_paths }}" class="edit-input" style="width:100%" placeholder="/manage*, /api/*">
+                    </span>
+                </div>
             </div>
         </div>
         <div style="display:flex;gap:6px;padding:12px 20px;border-top:1px solid var(--border-light)">
