@@ -16,7 +16,7 @@ use tracing::{info, warn};
 type WsSink = futures_util::stream::SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>;
 
 #[derive(Parser, Debug)]
-#[command(name = "node-agent")]
+#[command(name = "node-agent", version = env!("CARGO_PKG_VERSION"))]
 struct Args {
     #[arg(long)]
     config: Option<String>,
@@ -213,6 +213,7 @@ impl Agent {
                             "type": "register",
                             "node_id": node_id,
                             "token": token,
+                            "agent_version": env!("CARGO_PKG_VERSION"),
                         });
                         let msg = serde_json::to_string(&register)?;
                         sink.send(Message::Text(msg)).await?;
