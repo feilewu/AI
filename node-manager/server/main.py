@@ -8,13 +8,14 @@ import json
 import asyncio
 import hashlib
 import logging
+import re
 import secrets
 from datetime import datetime, timezone
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.responses import JSONResponse, HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from config import load_config
 from database import Database
@@ -22,7 +23,7 @@ from database import Database
 config = load_config()
 db = Database(config.db_path)
 
-env = Environment(loader=FileSystemLoader(str(BASE_DIR / "templates")))
+env = Environment(loader=FileSystemLoader(str(BASE_DIR / "templates")), autoescape=select_autoescape())
 
 app = FastAPI(title="Node Manager", root_path=config.root_path)
 
@@ -300,7 +301,7 @@ async def api_upload_release(request: Request):
     version = form.get("version", "").strip()
     if not version:
         return JSONResponse({"error": "version is required"}, status_code=400)
-    if not __import__("re").match(_ALLOWED_VERSION_RE, version):
+    if not re.match(_ALLOWED_VERSION_RE, version):
         return JSONResponse({"error": "version must be semver (e.g. 1.2.3)"}, status_code=400)
 
     upload_file = form.get("file")
@@ -312,6 +313,8 @@ async def api_upload_release(request: Request):
     file_path = release_dir / "node-agent"
 
     content = await upload_file.read()
+    if len(content) > 100 * 1024 * 1024:
+        return JSONResponse({"error": "文件大小超过 100MB 限制"}, status_code=400)
     file_path.write_bytes(content)
 
     checksum = hashlib.sha256(content).hexdigest()

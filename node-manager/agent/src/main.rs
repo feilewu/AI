@@ -330,8 +330,12 @@ impl Agent {
                                                     sink.send(Message::Text(status_msg.to_string())).await?;
                                                 }
 
-                                                let base_url = ws_url.trim_end_matches("/ws/agent");
-                                                let full_url = format!("{}{}", base_url, download_url);
+                                                let mut base_url = url::Url::parse(ws_url.trim_end_matches('/'))?;
+                                                base_url.set_path("");
+                                                let scheme = base_url.scheme();
+                                                let http_scheme = if scheme == "wss" { "https" } else { "http" };
+                                                base_url.set_scheme(http_scheme).ok();
+                                                let full_url = base_url.join(download_url)?.to_string();
 
                                                 match Self::download_binary(&full_url).await {
                                                     Ok(downloaded_path) => {
