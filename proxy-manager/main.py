@@ -218,7 +218,7 @@ async def api_add_service(request: Request):
 
     if request.headers.get("HX-Request") == "true":
         template = env.get_template("service_list.html")
-        html = template.render(services=_external_services())
+        html = template.render(services=_external_services(), authenticated=True)
         if auto_detected:
             html += f'\n<div id="scan-{target_port}" hx-swap-oob="delete"></div>'
         return HTMLResponse(html)
@@ -232,9 +232,9 @@ def _render_mgmt():
 
 
 @app.get("/api/services/cards")
-async def api_services_cards():
+async def api_services_cards(request: Request):
     template = env.get_template("service_list.html")
-    return HTMLResponse(template.render(services=_external_services()))
+    return HTMLResponse(template.render(services=_external_services(), authenticated=_is_authenticated(request)))
 
 
 @app.get("/api/services/mgmt")
@@ -370,7 +370,7 @@ async def api_get_service_card(request: Request, service_id: int):
         return JSONResponse({"error": "not found"}, status_code=404)
     if request.headers.get("HX-Request") == "true" or "text/html" in request.headers.get("Accept", ""):
         template = env.get_template("service_list.html")
-        return HTMLResponse(template.render(services=[svc]))
+        return HTMLResponse(template.render(services=[svc], authenticated=_is_authenticated(request)))
     return JSONResponse(svc)
 
 
@@ -383,6 +383,17 @@ async def api_edit_service_form(request: Request, service_id: int):
         return HTMLResponse("<p class='muted'>服务不存在</p>")
     template = env.get_template("service_edit.html")
     return HTMLResponse(template.render(svc=svc))
+
+
+@app.put("/api/services/reorder")
+async def api_reorder_services(request: Request):
+    if resp := _check_auth(request):
+        return resp
+    data = await request.json()
+    order = data.get("order", [])
+    for i, svc_id in enumerate(order):
+        db.reorder_service(int(svc_id), i)
+    return JSONResponse({"status": "ok"})
 
 
 @app.put("/api/services/{service_id}")

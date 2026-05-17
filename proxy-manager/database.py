@@ -22,6 +22,7 @@ class Database:
                 enabled BOOLEAN DEFAULT TRUE,
                 auto_detected BOOLEAN DEFAULT FALSE,
                 protected_paths TEXT DEFAULT '',
+                sort_order INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
@@ -33,13 +34,23 @@ class Database:
         existing = [r[1] for r in self.conn.execute("PRAGMA table_info(services)").fetchall()]
         if "protected_paths" not in existing:
             self.conn.execute("ALTER TABLE services ADD COLUMN protected_paths TEXT DEFAULT ''")
-            self.conn.commit()
+        if "sort_order" not in existing:
+            self.conn.execute("ALTER TABLE services ADD COLUMN sort_order INTEGER DEFAULT 0")
+            self.conn.execute("UPDATE services SET sort_order = id WHERE sort_order = 0")
+        self.conn.commit()
 
     def list_services(self) -> list[dict]:
         rows = self.conn.execute(
-            "SELECT * FROM services ORDER BY created_at DESC"
+            "SELECT * FROM services ORDER BY sort_order ASC, id ASC"
         ).fetchall()
         return [dict(r) for r in rows]
+
+    def reorder_service(self, service_id: int, sort_order: int):
+        self.conn.execute(
+            "UPDATE services SET sort_order = ?, updated_at = ? WHERE id = ?",
+            (sort_order, datetime.now(timezone.utc).isoformat(), service_id),
+        )
+        self.conn.commit()
 
     def get_service(self, service_id: int) -> dict | None:
         row = self.conn.execute(

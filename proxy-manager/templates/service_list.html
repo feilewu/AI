@@ -1,11 +1,12 @@
 <div id="service-list" class="service-grid">
     {% if services %}
         {% for svc in services %}
-        <a href="/{{ svc.path_prefix }}" class="service-card" id="svc-{{ svc.id }}" target="_blank">
+        <a href="/{{ svc.path_prefix }}" class="service-card" id="svc-{{ svc.id }}" data-id="{{ svc.id }}" target="_blank">
             <div class="card-top">
                 <div class="card-title-row">
                     <span class="status-dot {{ 'enabled' if svc.enabled else 'disabled' }}"></span>
                     <span class="service-name">{{ svc.name }}</span>
+                    {% if authenticated %}<span class="sort-handle">⠿</span>{% endif %}
                     <span class="source-badge {{ 'auto' if svc.auto_detected else 'manual' }}">
                         {{ '自动发现' if svc.auto_detected else '手动添加' }}
                     </span>

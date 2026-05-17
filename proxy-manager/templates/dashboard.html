@@ -11,6 +11,61 @@ function toggleMgmt() {
     p.classList.add('hidden');
   }
 }
+
+var _dragId = null;
+function onDragStart(ev) {
+  _dragId = ev.currentTarget.dataset.id;
+  ev.currentTarget.classList.add('dragging');
+  ev.dataTransfer.effectAllowed = 'move';
+  ev.dataTransfer.setData('text/plain', _dragId);
+}
+function onDragEnd(ev) {
+  ev.currentTarget.classList.remove('dragging');
+  document.querySelectorAll('.service-card').forEach(c => c.classList.remove('drag-over'));
+}
+function onDragOver(ev) {
+  ev.preventDefault();
+  ev.dataTransfer.dropEffect = 'move';
+  document.querySelectorAll('.service-card').forEach(c => c.classList.remove('drag-over'));
+  ev.currentTarget.classList.add('drag-over');
+}
+function onDragLeave(ev) {
+  ev.currentTarget.classList.remove('drag-over');
+}
+function onDrop(ev) {
+  ev.preventDefault();
+  ev.currentTarget.classList.remove('drag-over');
+  var targetId = ev.currentTarget.dataset.id;
+  if (_dragId === targetId) return;
+  var list = document.getElementById('service-list');
+  var dragEl = list.querySelector('[data-id="' + _dragId + '"]');
+  var targetEl = list.querySelector('[data-id="' + targetId + '"]');
+  if (!dragEl || !targetEl) return;
+  dragEl.remove();
+  list.insertBefore(dragEl, targetEl);
+  _submitOrder();
+}
+function _submitOrder() {
+  var ids = Array.from(document.querySelectorAll('.service-card')).map(c => c.dataset.id);
+  fetch('/api/services/reorder', {
+    method: 'PUT',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({order: ids})
+  });
+}
+function makeSortable() {
+  document.querySelectorAll('.service-card:not(.sort-init)').forEach(c => {
+    c.draggable = true;
+    c.classList.add('sort-init');
+    c.addEventListener('dragstart', onDragStart);
+    c.addEventListener('dragend', onDragEnd);
+    c.addEventListener('dragover', onDragOver);
+    c.addEventListener('dragleave', onDragLeave);
+    c.addEventListener('drop', onDrop);
+  });
+}
+document.addEventListener('DOMContentLoaded', makeSortable);
+document.body.addEventListener('htmx:afterSwap', makeSortable);
 </script>
 
 <div class="header-row">
@@ -30,11 +85,14 @@ function toggleMgmt() {
 <div id="service-list" class="service-grid">
     {% if services %}
         {% for svc in services %}
-        <a href="/{{ svc.path_prefix }}" class="service-card" id="svc-{{ svc.id }}" target="_blank">
+        <a href="/{{ svc.path_prefix }}" class="service-card" id="svc-{{ svc.id }}" data-id="{{ svc.id }}" target="_blank">
             <div class="card-top">
                 <div class="card-title-row">
                     <span class="status-dot {{ 'enabled' if svc.enabled else 'disabled' }}"></span>
                     <span class="service-name">{{ svc.name }}</span>
+                    {% if authenticated %}
+                    <span class="sort-handle">⠿</span>
+                    {% endif %}
                     <span class="source-badge {{ 'auto' if svc.auto_detected else 'manual' }}">
                         {{ '自动发现' if svc.auto_detected else '手动添加' }}
                     </span>
