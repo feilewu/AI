@@ -51,6 +51,20 @@ cd "$OUTPUT_DIR"
 tar czf node-agent-release.tar.gz $TAR_FILES
 rm -f $TAR_FILES
 
+# ── 5. 上传 Agent 到 Server ────────────────────────
+echo ">>> 上传 Agent 到 Server ..."
+SERVER_URL="${SERVER_URL:-http://localhost:8902}"
+VERSION=$(grep '^version =' "$SCRIPT_DIR/agent/Cargo.toml" | head -1 | sed 's/.*"\(.*\)".*/\1/')
+if [ -n "$VERSION" ] && [ -f "$AGENT_BIN" ]; then
+    curl -sf -X POST "$SERVER_URL/api/releases" \
+        -F "version=$VERSION" \
+        -F "file=@$AGENT_BIN" \
+    && info "Agent v$VERSION 已上传到 $SERVER_URL" \
+    || warn "上传失败 (Server 可能未运行)"
+else
+    warn "跳过上传：版本号或二进制不可用"
+fi
+
 info "部署包: $OUTPUT_DIR/node-agent-release.tar.gz"
 echo ""
 echo "══════════════════════════════════════════════"
