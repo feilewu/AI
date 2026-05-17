@@ -3,17 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Node Manager{% endblock %}</title>
+    <title>{{ title|default("Node Manager") }}</title>
     <script src="https://unpkg.com/htmx.org@1.9.12"></script>
     <link rel="stylesheet" href="/static/style.css">
 </head>
-<body hx-headers='{"X-Requested-With": "XMLHttpRequest"}'>
+<body>
     <header>
         <a href="/">Node Manager</a>
-        <a href="/manage" class="nav-link" hx-get="/manage" hx-target="#content" hx-push-url="true">管理</a>
+        <a href="/manage" class="nav-link">管理</a>
     </header>
     <div class="content" id="content">
-        {% block content %}{% endblock %}
+        {{ content|safe }}
     </div>
 </body>
 </html>

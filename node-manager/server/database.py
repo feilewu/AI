@@ -3,6 +3,8 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
+UTC = timezone.utc
+
 
 class Database:
     def __init__(self, db_path: str):
@@ -77,7 +79,7 @@ class Database:
     def set_node_online(self, node_id: str):
         self.conn.execute(
             "UPDATE nodes SET status = 'online', last_seen = ? WHERE id = ?",
-            (datetime.now(datetime.UTC).isoformat(), node_id),
+            (datetime.now(UTC).isoformat(), node_id),
         )
         self.conn.commit()
 
@@ -153,7 +155,7 @@ class Database:
     def update_command_result(self, cmd_id: int, result: str, exit_code: int):
         self.conn.execute(
             "UPDATE commands SET status = 'executed', result = ?, exit_code = ?, executed_at = ? WHERE id = ?",
-            (result, exit_code, datetime.now(datetime.UTC).isoformat(), cmd_id),
+            (result, exit_code, datetime.now(UTC).isoformat(), cmd_id),
         )
         self.conn.commit()
 

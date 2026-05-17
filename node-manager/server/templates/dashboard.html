@@ -1,8 +1,5 @@
-{% extends "base.html" %}
-{% block title %}Node Manager{% endblock %}
-{% block content %}
 <h1>节点状态</h1>
-<div class="auto-refresh" hx-get="/" hx-trigger="every 10s" hx-target="#content" hx-swap="outerHTML">自动刷新中...</div>
+<div class="auto-refresh" hx-get="/" hx-trigger="every 10s" hx-target="#content" hx-swap="innerHTML">自动刷新中...</div>
 <div class="node-grid">
     {% for node in nodes %}
     <div class="node-card {{ 'online' if node.status == 'online' else 'offline' }}"
@@ -24,4 +21,3 @@
     </div>
     {% endfor %}
 </div>
-{% endblock %}

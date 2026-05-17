@@ -1,1 +1,5 @@
 target/
+dist/
+*.db
+__pycache__/
+*.pyc

@@ -33,6 +33,16 @@ active_connections: dict[str, WebSocket] = {}
 logger = logging.getLogger("node-manager")
 
 
+# ── Rendering helper ───────────────────────────────────────────────────
+
+def render_page(template_name: str, request: Request = None, title: str = "Node Manager", **kwargs):
+    content = env.get_template(template_name).render(**kwargs)
+    if request and request.headers.get("hx-request") == "true":
+        return HTMLResponse(content)
+    layout = env.get_template("base.html")
+    return HTMLResponse(layout.render(content=content, title=title))
+
+
 # ── WebSocket: Agent 接入 ──────────────────────────────────────────────
 
 @app.websocket("/ws/agent")
@@ -105,7 +115,7 @@ async def dispatch_command(node_id: str, cmd_id: int, command: str) -> bool:
 # ── Web UI 页面 ────────────────────────────────────────────────────────
 
 @app.get("/", response_class=HTMLResponse)
-async def dashboard():
+async def dashboard(request: Request):
     nodes = db.get_nodes()
     for n in nodes:
         m = db.get_latest_metrics(n["id"])
@@ -113,39 +123,35 @@ async def dashboard():
             n["cpu_pct"] = round(m["cpu_pct"], 1) if m["cpu_pct"] else None
             n["memory_pct"] = round(m["memory_pct"], 1) if m["memory_pct"] else None
             n["disk_pct"] = round(m["disk_pct"], 1) if m["disk_pct"] else None
-    template = env.get_template("dashboard.html")
-    return template.render(nodes=nodes)
+    return render_page("dashboard.html", request=request, title="Node Manager", nodes=nodes)
 
 
 @app.get("/nodes/{node_id}", response_class=HTMLResponse)
-async def node_detail(node_id: str):
+async def node_detail(node_id: str, request: Request):
     node = db.get_node(node_id)
     if not node:
         return HTMLResponse("Node not found", status_code=404)
     latest = db.get_latest_metrics(node_id)
     history = db.get_metrics_history(node_id, limit=60)
     commands = db.get_node_commands(node_id, limit=20)
-    template = env.get_template("node_detail.html")
-    return template.render(node=node, latest=latest, history=history, commands=commands)
+    return render_page("node_detail.html", request=request, title=f"{node['name']} - Node Manager", node=node, latest=latest, history=history, commands=commands)
 
 
 @app.get("/nodes/{node_id}/command", response_class=HTMLResponse)
-async def node_command_page(node_id: str):
+async def node_command_page(node_id: str, request: Request):
     node = db.get_node(node_id)
     if not node:
         return HTMLResponse("Node not found", status_code=404)
     history = db.get_node_commands(node_id, limit=50)
-    template = env.get_template("node_command.html")
-    return template.render(node=node, history=history)
+    return render_page("node_command.html", request=request, title=f"命令 - {node['name']} - Node Manager", node=node, history=history)
 
 
 @app.get("/nodes/{node_id}/logs", response_class=HTMLResponse)
-async def node_logs_page(node_id: str):
+async def node_logs_page(node_id: str, request: Request):
     node = db.get_node(node_id)
     if not node:
         return HTMLResponse("Node not found", status_code=404)
-    template = env.get_template("node_logs.html")
-    return template.render(node=node)
+    return render_page("node_logs.html", request=request, title=f"日志 - {node['name']} - Node Manager", node=node)
 
 
 @app.get("/nodes/{node_id}/logs/fetch", response_class=HTMLResponse)
@@ -167,10 +173,9 @@ async def node_logs_fetch(node_id: str, source: str = "", lines: int = 100):
 
 
 @app.get("/manage", response_class=HTMLResponse)
-async def manage_page():
+async def manage_page(request: Request):
     nodes = db.get_nodes()
-    template = env.get_template("manage.html")
-    return template.render(nodes=nodes)
+    return render_page("manage.html", request=request, title="节点管理 - Node Manager", nodes=nodes)
 
 
 # ── REST API ───────────────────────────────────────────────────────────
@@ -253,7 +258,7 @@ async def api_regenerate_token(node_id: str):
 async def check_stale_connections():
     while True:
         await asyncio.sleep(60)
-        now = datetime.now(timezone.UTC)
+        now = datetime.now(timezone.utc)
         stale = []
         for nid, ws in list(active_connections.items()):
             try:

@@ -1,10 +1,7 @@
-{% extends "base.html" %}
-{% block title %}{{ node.name }} - Node Manager{% endblock %}
-{% block content %}
 <div class="breadcrumb">
     <a href="/" hx-get="/" hx-target="#content" hx-push-url="true">← 返回</a>
 </div>
-<div class="auto-refresh" hx-get="/nodes/{{ node.id }}" hx-trigger="every 10s" hx-target="#content" hx-swap="outerHTML">自动刷新中...</div>
+<div class="auto-refresh" hx-get="/nodes/{{ node.id }}" hx-trigger="every 10s" hx-target="#content" hx-swap="innerHTML">自动刷新中...</div>
 <h1>{{ node.name }} <span class="node-id">{{ node.id }}</span></h1>
 <div class="status-bar">
     <span class="status-dot {{ node.status }}"></span>
@@ -98,4 +95,3 @@
 {% else %}
 <p class="muted">暂无指标数据</p>
 {% endif %}
-{% endblock %}
