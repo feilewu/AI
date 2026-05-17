@@ -11,6 +11,8 @@ use tokio_tungstenite::MaybeTlsStream;
 use tokio_tungstenite::WebSocketStream;
 use tokio::net::TcpStream;
 use tokio::sync::Mutex;
+use std::path::PathBuf;
+use sha2::{Digest, Sha256};
 use tracing::{info, warn};
 
 type WsSink = futures_util::stream::SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>;
@@ -161,6 +163,56 @@ impl Agent {
         }
     }
 
+    async fn download_binary(url: &str) -> Result<PathBuf, Box<dyn std::error::Error>> {
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(120))
+            .build()?;
+
+        let response = client.get(url).send().await?;
+        let bytes = response.bytes().await?;
+
+        let dest = PathBuf::from("/tmp/node-agent-update");
+        tokio::fs::write(&dest, &bytes).await?;
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            tokio::fs::set_permissions(&dest, std::fs::Permissions::from_mode(0o755)).await?;
+        }
+
+        info!("Downloaded {} bytes to {:?}", bytes.len(), dest);
+        Ok(dest)
+    }
+
+    async fn verify_checksum(path: &std::path::Path, expected: &str) -> Result<bool, Box<dyn std::error::Error>> {
+        let content = tokio::fs::read(path).await?;
+        let mut hasher = Sha256::new();
+        hasher.update(&content);
+        let actual = format!("{:x}", hasher.finalize());
+        Ok(actual == expected)
+    }
+
+    async fn replace_self(new_bin: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
+        let current_exe = std::env::current_exe()?;
+        let backup = current_exe.with_extension("old");
+
+        if backup.exists() {
+            std::fs::remove_file(&backup)?;
+        }
+
+        std::fs::rename(&current_exe, &backup)?;
+        std::fs::rename(new_bin, &current_exe)?;
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&current_exe, std::fs::Permissions::from_mode(0o755))?;
+        }
+
+        info!("Binary replaced: {} → {}", backup.display(), current_exe.display());
+        Ok(())
+    }
+
     async fn run(&self) -> Result<(), Box<dyn std::error::Error>> {
         let server_url = self
             .config
@@ -258,6 +310,112 @@ impl Agent {
                                                 });
                                                 let mut sink = ws_sink.lock().await;
                                                 sink.send(Message::Text(response.to_string())).await?;
+                                            }
+                                            Some("update_available") => {
+                                                let version = parsed["version"].as_str().unwrap_or("unknown");
+                                                let download_url = parsed["download_url"].as_str().unwrap_or("");
+                                                let expected_checksum = parsed["checksum_sha256"].as_str().unwrap_or("");
+                                                let _file_size = parsed["file_size"].as_i64().unwrap_or(0);
+
+                                                info!("Update available: version={}, url={}", version, download_url);
+
+                                                {
+                                                    let mut sink = ws_sink.lock().await;
+                                                    let status_msg = serde_json::json!({
+                                                        "type": "update_status",
+                                                        "version": version,
+                                                        "status": "downloading",
+                                                        "message": "",
+                                                    });
+                                                    sink.send(Message::Text(status_msg.to_string())).await?;
+                                                }
+
+                                                let base_url = ws_url.trim_end_matches("/ws/agent");
+                                                let full_url = format!("{}{}", base_url, download_url);
+
+                                                match Self::download_binary(&full_url).await {
+                                                    Ok(downloaded_path) => {
+                                                        if !expected_checksum.is_empty() {
+                                                            match Self::verify_checksum(&downloaded_path, expected_checksum).await {
+                                                                Ok(true) => {}
+                                                                Ok(false) => {
+                                                                    let _ = std::fs::remove_file(&downloaded_path);
+                                                                    let mut sink = ws_sink.lock().await;
+                                                                    let status_msg = serde_json::json!({
+                                                                        "type": "update_status",
+                                                                        "version": version,
+                                                                        "status": "failed",
+                                                                        "message": "checksum mismatch",
+                                                                    });
+                                                                    sink.send(Message::Text(status_msg.to_string())).await?;
+                                                                    continue;
+                                                                }
+                                                                Err(e) => {
+                                                                    let _ = std::fs::remove_file(&downloaded_path);
+                                                                    let mut sink = ws_sink.lock().await;
+                                                                    let status_msg = serde_json::json!({
+                                                                        "type": "update_status",
+                                                                        "version": version,
+                                                                        "status": "failed",
+                                                                        "message": format!("checksum error: {}", e),
+                                                                    });
+                                                                    sink.send(Message::Text(status_msg.to_string())).await?;
+                                                                    continue;
+                                                                }
+                                                            }
+                                                        }
+
+                                                        {
+                                                            let mut sink = ws_sink.lock().await;
+                                                            let status_msg = serde_json::json!({
+                                                                "type": "update_status",
+                                                                "version": version,
+                                                                "status": "ready",
+                                                                "message": "",
+                                                            });
+                                                            sink.send(Message::Text(status_msg.to_string())).await?;
+                                                        }
+
+                                                        info!("Replacing binary and restarting...");
+                                                        match Self::replace_self(&downloaded_path).await {
+                                                            Ok(()) => {
+                                                                {
+                                                                    let mut sink = ws_sink.lock().await;
+                                                                    let status_msg = serde_json::json!({
+                                                                        "type": "update_status",
+                                                                        "version": version,
+                                                                        "status": "success",
+                                                                        "message": "",
+                                                                    });
+                                                                    sink.send(Message::Text(status_msg.to_string())).await?;
+                                                                }
+                                                                tokio::time::sleep(Duration::from_millis(200)).await;
+                                                                std::process::exit(0);
+                                                            }
+                                                            Err(e) => {
+                                                                let _ = std::fs::remove_file(&downloaded_path);
+                                                                let mut sink = ws_sink.lock().await;
+                                                                let status_msg = serde_json::json!({
+                                                                    "type": "update_status",
+                                                                    "version": version,
+                                                                    "status": "failed",
+                                                                    "message": format!("replace error: {}", e),
+                                                                });
+                                                                sink.send(Message::Text(status_msg.to_string())).await?;
+                                                            }
+                                                        }
+                                                    }
+                                                    Err(e) => {
+                                                        let mut sink = ws_sink.lock().await;
+                                                        let status_msg = serde_json::json!({
+                                                            "type": "update_status",
+                                                            "version": version,
+                                                            "status": "failed",
+                                                            "message": format!("download error: {}", e),
+                                                        });
+                                                        sink.send(Message::Text(status_msg.to_string())).await?;
+                                                    }
+                                                }
                                             }
                                             Some(other) => warn!("Unknown message type: {}", other),
                                             None => warn!("Received message without type field"),
