@@ -7,7 +7,7 @@ set -euo pipefail
 # ──────────────────────────────────────────────────
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-BINARY_SRC="${BINARY_SRC:-"$SCRIPT_DIR/target/release/node-agent"}"
+BINARY_SRC="${BINARY_SRC:-"$SCRIPT_DIR/target/x86_64-unknown-linux-gnu/release/node-agent"}"
 CONFIG_DIR="/etc/node-agent"
 BINARY_DST="/usr/local/bin/node-agent"
 
@@ -71,16 +71,15 @@ done
 build_agent() {
   echo ">>> 编译 node-agent (release)..."
   cd "$SCRIPT_DIR"
-  cargo build --release
-  BINARY_SRC="$SCRIPT_DIR/target/release/node-agent"
+  RUSTFLAGS="-C target-feature=+crt-static" cargo build --release --target x86_64-unknown-linux-gnu
+  BINARY_SRC="$SCRIPT_DIR/target/x86_64-unknown-linux-gnu/release/node-agent"
   info "编译完成: $BINARY_SRC"
 }
 
 if [ "$DO_BUILD" = true ]; then
   build_agent
 elif [ ! -f "$BINARY_SRC" ]; then
-  warn "未找到二进制: $BINARY_SRC，正在编译..."
-  build_agent
+  err "未找到二进制: $BINARY_SRC，请先编译 (cargo build --release) 或使用 --binary 指定路径"
 fi
 
 # ── 部署到远程 ────────────────────────────────────

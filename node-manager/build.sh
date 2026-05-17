@@ -12,7 +12,7 @@ err()   { echo -e "${RED}[✗]${NC} $1"; exit 1; }
 # ── 1. 编译 Agent ─────────────────────────────────
 echo ">>> 编译 Agent (release) ..."
 cd "$SCRIPT_DIR/agent"
-cargo build --release
+RUSTFLAGS="-C target-feature=+crt-static" cargo build --release --target x86_64-unknown-linux-gnu
 info "Agent 编译完成"
 
 # ── 2. 构建 + 启动 Server (docker compose) ───────
@@ -30,7 +30,7 @@ info "种子节点已生成 (可在管理页面删除)"
 echo ">>> 打包 Agent 部署包 ..."
 mkdir -p "$OUTPUT_DIR"
 
-AGENT_BIN="$SCRIPT_DIR/agent/target/release/node-agent"
+AGENT_BIN="$SCRIPT_DIR/agent/target/x86_64-unknown-linux-gnu/release/node-agent"
 DEPLOY_SCRIPT="$SCRIPT_DIR/agent/deploy.sh"
 
 [ -f "$AGENT_BIN" ] || err "Agent 二进制未找到: $AGENT_BIN"
