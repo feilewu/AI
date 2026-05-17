@@ -117,6 +117,7 @@ async def dispatch_command(node_id: str, cmd_id: int, command: str) -> bool:
 # ── Release 管理 ───────────────────────────────────────────────────────
 
 RELEASES_DIR = Path(config.releases_dir)
+_ALLOWED_VERSION_RE = r"^\d+\.\d+\.\d+$"
 
 
 async def broadcast_update(release: dict):
@@ -281,6 +282,8 @@ async def api_upload_release(request: Request):
     version = form.get("version", "").strip()
     if not version:
         return JSONResponse({"error": "version is required"}, status_code=400)
+    if not __import__("re").match(_ALLOWED_VERSION_RE, version):
+        return JSONResponse({"error": "version must be semver (e.g. 1.2.3)"}, status_code=400)
 
     upload_file = form.get("file")
     if not upload_file:
