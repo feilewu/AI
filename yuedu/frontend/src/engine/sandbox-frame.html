@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body>
+<script>
+var java = {
+  getElement: function(path) { return [] },
+  toast: function(msg) { parent.postMessage({ type: 'toast', msg }, '*') },
+  longToast: function(msg) { parent.postMessage({ type: 'longToast', msg }, '*') },
+  ajax: function(url) { return '' },
+  get: function(key) { return null },
+  put: function(key, value) {},
+  base64Encode: function(data) { return btoa(data) },
+  hexDecodeToString: function(data) {
+    if (typeof data !== 'string') return '';
+    var pairs = data.match(/.{1,2}/g);
+    if (!pairs) return '';
+    var chars = [];
+    for (var i = 0; i < pairs.length; i++) {
+      chars.push(String.fromCharCode(parseInt(pairs[i], 16)));
+    }
+    return chars.join('');
+  },
+  startBrowserAwait: function(url, msg) {},
+  setContent: function(content) {},
+  timeFormat: function(timestamp) {
+    var d = new Date(timestamp);
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0') + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0') + ':' + String(d.getSeconds()).padStart(2,'0');
+  },
+  androidId: function() { return null }
+};
+
+var ctx = {};
+
+window.addEventListener('message', function(e) {
+  var data = e.data;
+  if (data.type === 'execute') {
+    try {
+      ctx = data.context || {};
+
+      if (ctx.java) {
+        java.get = function(k) { return ctx.java.get ? ctx.java.get(k) : null; };
+        java.put = function(k, v) { if (ctx.java.put) ctx.java.put(k, v); };
+        java.getElement = function(path) { return ctx.java.getElement ? ctx.java.getElement(path) : []; };
+        java.ajax = function(url) { return ctx.java.ajax ? ctx.java.ajax(url) : ''; };
+      }
+
+      var fn = new Function('key', 'page', 'baseUrl', 'result', 'java', data.script);
+      var output = fn(ctx.key, ctx.page, ctx.baseUrl, ctx.result, java);
+      parent.postMessage({ type: 'result', id: data.id, data: output }, '*');
+    } catch(e) {
+      parent.postMessage({ type: 'error', id: data.id, error: e.message }, '*');
+    }
+  }
+});
+</script>
+</body>
+</html>
